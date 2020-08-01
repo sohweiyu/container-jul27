@@ -1,0 +1,66 @@
+---
+# A deployment is used to manage a group of similar pods
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortune-deploy
+  #namespace: fortune-ns
+  labels:
+    app: fortune
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      # should match the metadata label of template (AKA pod)
+      app: fortune-pod
+  template:
+    # this is basically "fortune-pod.yaml" AKA telling that this is the pod to create
+    metadata:
+      name: fortune-pod
+      labels:
+        app: fortune-pod
+    spec:
+      containers:
+        - name: fortune-container
+          image: sohwy/fortune:v2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: for-port
+              containerPort: 3000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fortune-svc
+  #namespace: fortune-ns
+  labels:
+    app: fortune
+spec:
+  type: ClusterIP
+  selector:
+    # route to this group of pods (via labels)
+    app: fortune-pod
+  ports:
+    - name: for-svc-port
+      # refers to the port exposed by service
+      port : 3000
+      # refers to the port exposed by the port
+      targetPort: for-port
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: fortune-ing
+  labels:
+    app: fortune
+spec:
+  rules:
+    - host: fortune.167.172.5.33.nip.io
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: fortune-svc
+              servicePort: for-svc-port

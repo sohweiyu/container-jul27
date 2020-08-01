@@ -1,0 +1,21 @@
+---
+# Generally its a good idea to separate this yaml file
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nwdb-pvc
+  labels:
+    app: northwind
+  annotations:
+    volume.beta.kubernetes.io/storage-provider: dobs.csi.digitalocean.com
+spec:
+  # minimum volume on digitalOcean is 1GB
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: do-block-storage # kubectl get sc
+  resources:
+    requests:
+      # G = 1000MB, Gi = 1024MB
+      storage: 1Gi
+
+

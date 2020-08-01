@@ -1,0 +1,83 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wp-deploy
+  #namespace: wp
+  labels:
+    app: wordpress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    metadata:
+      name: wp-pod
+      labels:
+        app: wordpress
+    spec:
+      volumes:
+        - name: wp-vol
+          persistentVolumeClaim:
+            claimName: wp-pvc
+      containers:
+        - name: wp-container
+          image: wordpress
+          envFrom:
+            - configMapRef:
+                name: wp-cm
+          env:
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: wp-db-secret
+                  key: ROOT_PASSWORD
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: wp-port
+              containerPort: 80
+          volumeMounts:
+            - name: wp-vol
+              mountPath: /var/www/html
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0 # do not want the site to be down
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wp-svc
+  #namespace: wp
+  labels:
+    app: wordpress
+spec:
+  type: ClusterIP
+  selector:
+    # this selector refers to the pod
+    app: wordpress
+  ports:
+    - name: wp-svc-port
+      port: 80
+      targetPort: wp-port
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: wp-ing
+  labels:
+    app: wordpress
+  annotations:
+    # refer to user guide for nginx
+    nginx.ingress.kubernetes.io/limit-rps: "5"
+spec:
+  rules:
+    - host: acme.167.172.5.33.nip.io
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: wp-svc
+              servicePort: wp-svc-port

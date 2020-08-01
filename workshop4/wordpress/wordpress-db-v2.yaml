@@ -1,0 +1,72 @@
+# without using mysql operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wp-db-deploy
+  # namespace: wp (not included)
+  labels:
+    app: wordpress
+spec:
+  # Because DB is stateful (doesn't make sense to have more than 1 DB)
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    # this is basically "nw-pod.yaml" AKA telling that this is the pod to create
+    metadata:
+      name: wp-db-pod
+      labels:
+        app: wordpress
+    spec:
+      volumes:
+        - name: wp-db-vol
+          persistentVolumeClaim:
+            claimName: wp-db-pvc
+        - name: share-dir
+          emptyDir: {} # created for each pod and is unique for each pod
+      initContainers:
+        # specialized containers that run before app containers in a Pod (must terminate before app containers can run)
+        # runs sequentially
+        - name: busybox
+          image: busybox # popular image: just a shell for running stuff
+          command:
+            - /bin/sh
+            - -c
+            - "test -e /scrub && rm -rf /scrub/..?* /scrub/.[!.]* /scrub/*  && test -z \"$(ls -A /scrub)\" || exit 1"
+          volumeMounts:
+            - name: wp-db-vol
+              mountPath: /scrub
+            - name: share-dir
+              mountPath: /tmp/share
+      containers:
+        - name: wp-db-container
+          image: dockerkoh/nwdb:v3
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: wp-db-secret # name of secret
+          ports:
+            - name: wp-db-port
+              containerPort: 3306
+          volumeMounts:
+            - name: wp-db-vol
+              mountPath: /var/lib/mysql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wp-db-svc
+  #namespace: wp
+  labels:
+    app: wordpress
+spec:
+  # ClusterIP since this is database and should be within the network (not exposed)
+  type: ClusterIP
+  selector:
+    app: wordpress
+  ports:
+    - name: wp-db-svc-port
+      port: 3306
+      targetPort: wp-db-port

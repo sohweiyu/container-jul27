@@ -1,0 +1,44 @@
+# Generally its a good idea to separate this yaml file
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wp-db-secret
+  #namespace: wp
+  labels:
+    app: wordpress
+type: Opaque
+data:
+  ROOT_PASSWORD: Y2hhbmdlaXQ= #changeit
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wp-cm
+  #namespace: wp
+  labels:
+    app: wordpress
+data:
+  # <servicename>.<namespace>.svc.cluster.local
+  WORDPRESS_DB_HOST: wp-db-cluster-mysql.wp.svc.cluster.local # either this or the master cluster (N
+  WORDPRESS_DB_USER: root
+---
+# Wordpress Content
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wp-pvc
+  labels:
+    app: wordpress
+  annotations:
+    volume.beta.kubernetes.io/storage-provider: dobs.csi.digitalocean.com
+spec:
+  # minimum volume on digitalOcean is 1GB
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: do-block-storage # kubectl get sc
+  resources:
+    requests:
+      # G = 1000MB, Gi = 1024MB
+      storage: 1Gi
+  volumeMode: Filesystem

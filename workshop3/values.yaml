@@ -1,0 +1,10 @@
+controller:
+  publishedService:
+    enabled: true
+defaultBackend:
+  enabled: true
+  #name: default-backend
+  image:
+    repository: chukmunnlee/ingress_default_backend
+    tag: v1
+  port: 3000

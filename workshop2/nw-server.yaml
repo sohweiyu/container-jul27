@@ -1,0 +1,70 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nwapp-cm
+  #namespace: nw
+  labels:
+    app: northwind
+data:
+  DB_USER: root
+  # <servicename>.<namespace>.svc.cluster.local
+  DB_HOST: nwdb-svc.nw.svc.cluster.local
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nwapp-deploy
+  #namespace: nw
+  labels:
+    app: northwind
+    label: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nwapp-pod
+  template:
+    metadata:
+      name: nwapp-pod
+      labels:
+        app: nwapp-pod
+    spec:
+      containers:
+        - name: nwapp-container
+          image: sohwy/nw_server:v1
+          envFrom:
+            - configMapRef:
+                name: nwapp-cm
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nw-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: INSTANCE_IP_ADDRESS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: nwapp-port
+              containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nwapp-svc
+  #namespace: nw
+  labels:
+    app: northwind
+spec:
+  # ClusterIP since this is database and should be within the network (not exposed)
+  type: LoadBalancer
+  selector:
+    # this selector refers to the pod
+    app: nwapp-pod
+  ports:
+    - name: nwapp-svc-port
+      port: 80
+      targetPort: nwapp-port
